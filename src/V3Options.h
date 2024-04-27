@@ -233,6 +233,7 @@ private:
     bool m_coverageToggle = false;  // main switch: --coverage-toggle
     bool m_coverageUnderscore = false;  // main switch: --coverage-underscore
     bool m_coverageUser = false;    // main switch: --coverage-func
+    bool m_customBuild = false;     // main switch: --make custom
     bool m_debugCheck = false;      // main switch: --debug-check
     bool m_debugCollision = false;  // main switch: --debug-collision
     bool m_debugEmitV = false;      // main switch: --debug-emitv
@@ -474,6 +475,7 @@ public:
     bool coverageToggle() const { return m_coverageToggle; }
     bool coverageUnderscore() const { return m_coverageUnderscore; }
     bool coverageUser() const { return m_coverageUser; }
+    bool customBuild() const { return m_customBuild; }
     bool debugCheck() const VL_MT_SAFE { return m_debugCheck; }
     bool debugCollision() const { return m_debugCollision; }
     bool debugEmitV() const VL_MT_SAFE { return m_debugEmitV; }

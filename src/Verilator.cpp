@@ -42,6 +42,7 @@
 #include "V3DepthBlock.h"
 #include "V3Descope.h"
 #include "V3DfgOptimizer.h"
+#include "V3EmitBuildPlan.h"
 #include "V3EmitC.h"
 #include "V3EmitCMain.h"
 #include "V3EmitCMake.h"
@@ -632,6 +633,7 @@ static void process() {
                 v3Global.useParallelBuild(true);
             if (v3Global.opt.cmake()) V3EmitCMake::emit();
             if (v3Global.opt.gmake()) V3EmitMk::emitmk();
+            if (v3Global.opt.customBuild()) V3EmitBuildPlan::emit();
         }
 
         // Final statistics
