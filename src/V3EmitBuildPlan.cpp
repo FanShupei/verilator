@@ -39,7 +39,7 @@ class BuildPlanEmitter final {
                 return "\"vcd\"";
             }
         } else {
-            return "None";
+            return "null";
         }
     }
 
@@ -98,15 +98,6 @@ class BuildPlanEmitter final {
         }
     }
 
-    static std::string getPathName(std::string const& p) {
-        auto idx = std::find(p.begin(), p.end(), '/');
-        if (idx == p.end()) {
-            return p;
-        } else {
-            return p.substr((idx - p.begin()) + 1);
-        }
-    }
-
     static void modelSourcesJson(std::ostream& os) {
         std::vector<std::string> files;
 
@@ -114,7 +105,7 @@ class BuildPlanEmitter final {
         for (AstNodeFile* nodep = v3Global.rootp()->filesp(); nodep; nodep = VN_AS(nodep->nextp(), NodeFile)) {
             const AstCFile* const cfilep = VN_CAST(nodep, CFile);
             if (cfilep && cfilep->source()) {
-                files.push_back(getPathName(cfilep->name()));
+                files.push_back(V3Os::filenameNonDir(cfilep->name()));
             }
         }
 
@@ -136,7 +127,7 @@ class BuildPlanEmitter final {
         for (AstNodeFile* nodep = v3Global.rootp()->filesp(); nodep; nodep = VN_AS(nodep->nextp(), NodeFile)) {
             const AstCFile* const cfilep = VN_CAST(nodep, CFile);
             if (cfilep && !cfilep->source()) {
-                files.push_back(getPathName(cfilep->name()));
+                files.push_back(V3Os::filenameNonDir(cfilep->name()));
             }
         }
 
@@ -158,7 +149,10 @@ class BuildPlanEmitter final {
 
         os << "{\n";
         os << "  \"version\": \"" << BUILD_PLAN_VERSION << "\",\n";
-        os << "  \"verilate_config\": {\n";
+        os << "  \"config\": {\n";
+        os << "    \"VERILATOR_ROOT\": \"" << V3Options::getenvVERILATOR_ROOT() << "\"\n",
+        os << "  },\n";
+        os << "  \"libverilated\": {\n";
         os << "    \"mode\": \"" << (v3Global.opt.systemC() ? "systemc" : "cpp") << "\",\n";
 
         os << "    \"features\": ";
@@ -171,13 +165,15 @@ class BuildPlanEmitter final {
 
         os << "    \"compile_macros\": " << globalMacrosJson() << "\n";
         os << "  },\n";
-        os << "  \"model_config\": {\n";
-        os << "    \"trace\": " << traceFormatJson() << ",\n";
-        os << "    \"timing\": " << (v3Global.usesTiming() ? "1" : "0") << ",\n";
-        os << "    \"coverage\": " << (v3Global.opt.coverage() ? "1" : "0") << ",\n";
+        os << "  \"model\": {\n";
+        os << "    \"config\": {\n";
+        os << "      \"threads\": " << v3Global.opt.threads() << ",\n";
+        os << "      \"trace\": " << traceFormatJson() << ",\n";
+        os << "      \"timing\": " << (v3Global.usesTiming() ? "1" : "0") << ",\n";
+        os << "      \"coverage\": " << (v3Global.opt.coverage() ? "1" : "0") << "\n";
+        os << "    },\n";
         os << "    \"prefix\": \"" << v3Global.opt.prefix() << "\",\n";
-        os << "    \"main_shim\": " << (v3Global.opt.main() ? "1" : "0") << ",\n";
-        
+        // TODO: os << "    \"top_ports\": {},\n";
         os << "    \"compile_sources\": ";
         modelSourcesJson(os);
         os << ",\n";
