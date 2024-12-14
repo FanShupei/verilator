@@ -59,7 +59,6 @@
 #include <errno.h>
 #include <time.h>
 
-#include "fastlz.h"
 #include "fstapi.h"
 #include "lz4.h"
 

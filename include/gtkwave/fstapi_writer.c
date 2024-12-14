@@ -822,8 +822,14 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
             dmem = packmem = (unsigned char *)malloc(packmemlen = (wrlen * 2) + 2);
           }
 
-          rc = (xc->fourpack) ? LZ4_compress_default((char *)scratchpnt, (char *)dmem, wrlen, packmemlen)
-                              : fastlz_compress(scratchpnt, wrlen, dmem);
+          if (xc->fourpack) {
+            rc = LZ4_compress_default((char *)scratchpnt, (char *)dmem, wrlen, packmemlen);
+          } else {
+            // rc = fastlz_compress(scratchpnt, wrlen, dmem);
+            fprintf(stderr, "fastlz not enabled at compile, exiting.\n");
+            exit(255);
+          }
+
           if (rc < destlen) {
 #ifndef FST_DYNAMIC_ALIAS_DISABLE
             PPvoid_t pv = JudyHSIns(&PJHSArray, dmem, rc, NULL);
