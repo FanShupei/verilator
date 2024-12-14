@@ -49,7 +49,7 @@ private:
     //=========================================================================
     // FST-specific internals
 
-    void* m_fst = nullptr;
+    struct fstWriterContext* m_fst = nullptr;
     std::map<uint32_t, vlFstHandle> m_code2symbol;
     std::map<int, vlFstEnumHandle> m_local2fstdtype;
     vlFstHandle* m_symbolp = nullptr;  // same as m_code2symbol, but as an array
@@ -161,7 +161,7 @@ class VerilatedFstBuffer VL_NOT_FINAL {
     VerilatedFst& m_owner;  // Trace file owning this buffer. Required by subclasses.
 
     // The FST file handle
-    void* const m_fst = m_owner.m_fst;
+    struct fstWriterContext* const m_fst = m_owner.m_fst;
     // code to fstHande map, as an array
     const vlFstHandle* const m_symbolp = m_owner.m_symbolp;
     // String buffer long enough to hold maxBits() chars
