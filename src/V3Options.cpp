@@ -1611,11 +1611,13 @@ void V3Options::parseOptsList(FileLine* fl, const string& optdir, int argc,
         m_trace = true;
         m_traceFormat = TraceFormat::FST;
         addLdLibs("-lz");
+        addLdLibs("-llz4");
     });
     DECL_OPTION("-trace-fst-thread", CbCall, [this, fl]() {
         m_trace = true;
         m_traceFormat = TraceFormat::FST;
         addLdLibs("-lz");
+        addLdLibs("-llz4");
         fl->v3warn(DEPRECATED, "Option --trace-fst-thread is deprecated. "
                                "Use --trace-fst with --trace-threads > 0.");
         if (m_traceThreads == 0) m_traceThreads = 1;
