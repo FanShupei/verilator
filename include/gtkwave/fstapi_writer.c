@@ -2,6 +2,12 @@
 
 #include <assert.h>
 
+// Jenkins emulation
+void JenkinsFree(void *base_i, uint32_t hashmask);
+void **JenkinsIns(void *base_i, const unsigned char *mem, uint32_t length, uint32_t hashmask);
+/* should be more than enough for fstWriterSetSourceStem() */
+#define FST_PATH_HASHMASK ((1UL << 16) - 1)
+
 static int fstWriterUint64(FILE *handle, uint64_t v) {
   unsigned char buf[8];
   int i;
@@ -100,7 +106,7 @@ struct fstWriterContext {
   unsigned vc_emitted : 1;
   unsigned is_initial_time : 1;
   unsigned fourpack : 1;
-  unsigned fastpack : 1;
+  unsigned fastpack : 1; // removed
 
   int64_t timezero;
   fst_off_t section_header_truncpos;
@@ -125,7 +131,7 @@ struct fstWriterContext {
   unsigned char filetype; /* default is 0, FST_FT_VERILOG */
 
   unsigned compress_hier : 1;
-  unsigned repack_on_close : 1;
+  unsigned repack_on_close : 1; // removed
   unsigned skip_writing_section_hdr : 1;
   unsigned size_limit_locked : 1;
   unsigned section_header_only : 1;
@@ -155,7 +161,7 @@ struct fstWriterContext {
 
   fstHandle next_huge_break;
 
-  Pvoid_t path_array;
+  void *path_array;
   uint32_t path_array_count;
 
   unsigned fseek_failed : 1;
@@ -584,15 +590,14 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
 #endif
 
 #ifndef FST_DYNAMIC_ALIAS_DISABLE
-  Pvoid_t PJHSArray = (Pvoid_t)NULL;
-#ifndef _WAVE_HAVE_JUDY
+  void *PJHSArray = NULL;
+
   uint32_t hashmask = xc->maxhandle;
   hashmask |= hashmask >> 1;
   hashmask |= hashmask >> 2;
   hashmask |= hashmask >> 4;
   hashmask |= hashmask >> 8;
   hashmask |= hashmask >> 16;
-#endif
 #endif
 
   if ((xc->vchg_siz <= 1) || (xc->already_in_flush))
@@ -606,7 +611,7 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
 
   f = xc->handle;
   fstWriterVarint(f, xc->maxhandle); /* emit current number of handles */
-  fputc(xc->fourpack ? '4' : (xc->fastpack ? 'F' : 'Z'), f);
+  fputc(xc->fourpack ? '4' : 'Z', f);
   fpos = 1;
 
   packmemlen = 1024;                             /* maintain a running "longest" allocation to */
@@ -773,7 +778,7 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
         unsigned char *dmem;
         unsigned int rc;
 
-        if (!xc->fastpack) {
+        if (!xc->fourpack) {
           if (wrlen <= packmemlen) {
             dmem = packmem;
           } else {
@@ -784,7 +789,7 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
           rc = compress2(dmem, &destlen, scratchpnt, wrlen, 4);
           if (rc == Z_OK) {
 #ifndef FST_DYNAMIC_ALIAS_DISABLE
-            PPvoid_t pv = JudyHSIns(&PJHSArray, dmem, destlen, NULL);
+            void **pv = JenkinsIns(&PJHSArray, dmem, destlen, hashmask);
             if (*pv) {
               uint32_t pvi = (intptr_t)(*pv);
               vm4ip[2] = -pvi;
@@ -799,7 +804,7 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
 #endif
           } else {
 #ifndef FST_DYNAMIC_ALIAS_DISABLE
-            PPvoid_t pv = JudyHSIns(&PJHSArray, scratchpnt, wrlen, NULL);
+            void **pv = JenkinsIns(&PJHSArray, scratchpnt, wrlen, hashmask);
             if (*pv) {
               uint32_t pvi = (intptr_t)(*pv);
               vm4ip[2] = -pvi;
@@ -822,17 +827,10 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
             dmem = packmem = (unsigned char *)malloc(packmemlen = (wrlen * 2) + 2);
           }
 
-          if (xc->fourpack) {
-            rc = LZ4_compress_default((char *)scratchpnt, (char *)dmem, wrlen, packmemlen);
-          } else {
-            // rc = fastlz_compress(scratchpnt, wrlen, dmem);
-            fprintf(stderr, "fastlz not enabled at compile, exiting.\n");
-            exit(255);
-          }
-
+          rc = LZ4_compress_default((char *)scratchpnt, (char *)dmem, wrlen, packmemlen);
           if (rc < destlen) {
 #ifndef FST_DYNAMIC_ALIAS_DISABLE
-            PPvoid_t pv = JudyHSIns(&PJHSArray, dmem, rc, NULL);
+            void **pv = JenkinsIns(&PJHSArray, dmem, rc, hashmask);
             if (*pv) {
               uint32_t pvi = (intptr_t)(*pv);
               vm4ip[2] = -pvi;
@@ -847,7 +845,7 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
 #endif
           } else {
 #ifndef FST_DYNAMIC_ALIAS_DISABLE
-            PPvoid_t pv = JudyHSIns(&PJHSArray, scratchpnt, wrlen, NULL);
+            void **pv = JenkinsIns(&PJHSArray, scratchpnt, wrlen, hashmask);
             if (*pv) {
               uint32_t pvi = (intptr_t)(*pv);
               vm4ip[2] = -pvi;
@@ -864,7 +862,7 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
         }
       } else {
 #ifndef FST_DYNAMIC_ALIAS_DISABLE
-        PPvoid_t pv = JudyHSIns(&PJHSArray, scratchpnt, wrlen, NULL);
+        void **pv = JenkinsIns(&PJHSArray, scratchpnt, wrlen, hashmask);
         if (*pv) {
           uint32_t pvi = (intptr_t)(*pv);
           vm4ip[2] = -pvi;
@@ -887,7 +885,7 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
   }
 
 #ifndef FST_DYNAMIC_ALIAS_DISABLE
-  JudyHSFreeArray(&PJHSArray, NULL);
+  JenkinsFree(&PJHSArray, hashmask);
 #endif
 
   free(packmem);
@@ -902,7 +900,7 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
   xc->secnum++;
 
 #ifndef FST_DYNAMIC_ALIAS2_DISABLE
-  if (1) {
+  {
     uint32_t prev_alias = 0;
 
     for (i = 0; i < xc->maxhandle; i++) {
@@ -936,8 +934,8 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
         zerocnt++;
       }
     }
-  } else
-#endif
+  }
+#else
   {
     for (i = 0; i < xc->maxhandle; i++) {
       vm4ip = &(xc->valpos_mem[4 * i]);
@@ -963,6 +961,7 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
       }
     }
   }
+#endif
 
   if (zerocnt) {
     /* fpos += */ fstWriterVarint(f, (zerocnt << 1)); /* scan-build */
@@ -1055,8 +1054,8 @@ static void fstWriterFlushContextPrivate(struct fstWriterContext *xc)
 }
 
 #ifdef FST_WRITER_PARALLEL
-static void *fstWriterFlushContextPrivate1(void* ctx) {
-  struct fstWriterContext *xc = (struct fstWriterContext*)ctx;
+static void *fstWriterFlushContextPrivate1(void *ctx) {
+  struct fstWriterContext *xc = (struct fstWriterContext *)ctx;
   struct fstWriterContext *xc_parent;
 
   pthread_mutex_lock(&(xc->xc_parent->mutex));
@@ -1335,8 +1334,7 @@ void fstWriterClose(struct fstWriterContext *xc) {
         packed_len = LZ4_compress_default((char *)hmem, (char *)mem, xc->hier_file_len, lz4_maxlen);
         fstMunmap(hmem, xc->hier_file_len);
 
-        fourpack_duo = (!xc->repack_on_close) &&
-                       (xc->hier_file_len > FST_HDR_FOURPACK_DUO_SIZE); /* double pack when hierarchy is large */
+        fourpack_duo = (xc->hier_file_len > FST_HDR_FOURPACK_DUO_SIZE); /* double pack when hierarchy is large */
 
         if (fourpack_duo) /* double packing with LZ4 is faster than gzip */
         {
@@ -1400,63 +1398,8 @@ void fstWriterClose(struct fstWriterContext *xc) {
       xc->hier_handle = NULL;
     }
     if (xc->handle) {
-      if (xc->repack_on_close) {
-        FILE *fp;
-        fst_off_t offpnt, uclen;
-        int flen = strlen(xc->filename);
-        char *hf = (char *)calloc(1, flen + 5);
-
-        strcpy(hf, xc->filename);
-        strcpy(hf + flen, ".pak");
-        fp = fopen(hf, "wb");
-
-        if (fp) {
-          gzFile dsth;
-          int zfd;
-          char gz_membuf[FST_GZIO_LEN];
-
-          fstWriterFseeko(xc, xc->handle, 0, SEEK_END);
-          uclen = ftello(xc->handle);
-
-          fputc(FST_BL_ZWRAPPER, fp);
-          fstWriterUint64(fp, 0);
-          fstWriterUint64(fp, uclen);
-          fflush(fp);
-
-          fstWriterFseeko(xc, xc->handle, 0, SEEK_SET);
-          zfd = dup(fileno(fp));
-          dsth = gzdopen(zfd, "wb4");
-          if (dsth) {
-            for (offpnt = 0; offpnt < uclen; offpnt += FST_GZIO_LEN) {
-              size_t this_len = ((uclen - offpnt) > FST_GZIO_LEN) ? FST_GZIO_LEN : (uclen - offpnt);
-              fstFread(gz_membuf, this_len, 1, xc->handle);
-              gzwrite(dsth, gz_membuf, this_len);
-            }
-            gzclose(dsth);
-          } else {
-            close(zfd);
-          }
-          fstWriterFseeko(xc, fp, 0, SEEK_END);
-          offpnt = ftello(fp);
-          fstWriterFseeko(xc, fp, 1, SEEK_SET);
-          fstWriterUint64(fp, offpnt - 1);
-          fclose(fp);
-          fclose(xc->handle);
-          xc->handle = NULL;
-
-          unlink(xc->filename);
-          rename(hf, xc->filename);
-        } else {
-          xc->repack_on_close = 0;
-          fclose(xc->handle);
-          xc->handle = NULL;
-        }
-
-        free(hf);
-      } else {
-        fclose(xc->handle);
-        xc->handle = NULL;
-      }
+      fclose(xc->handle);
+      xc->handle = NULL;
     }
 
 #ifdef __MINGW32__
@@ -1480,10 +1423,7 @@ void fstWriterClose(struct fstWriterContext *xc) {
 #endif
 
     if (xc->path_array) {
-#ifndef _WAVE_HAVE_JUDY
-      const uint32_t hashmask = FST_PATH_HASHMASK;
-#endif
-      JudyHSFreeArray(&(xc->path_array), NULL);
+      JenkinsFree(&xc->path_array, FST_PATH_HASHMASK);
     }
 
     free(xc->filename);
@@ -1568,17 +1508,11 @@ static void fstWriterSetSourceStem_2(struct fstWriterContext *xc, const char *pa
 
   uint64_t sidx = 0;
   int slen = strlen(path);
-#ifndef _WAVE_HAVE_JUDY
+
   const uint32_t hashmask = FST_PATH_HASHMASK;
   const unsigned char *path2 = (const unsigned char *)path;
-  PPvoid_t pv;
-#else
-  char *path2 = (char *)alloca(slen + 1); /* judy lacks const qualifier in its JudyHSIns definition */
-  PPvoid_t pv;
-  strcpy(path2, path);
-#endif
 
-  pv = JudyHSIns(&(xc->path_array), path2, slen, NULL);
+  void **pv = JenkinsIns(&(xc->path_array), path2, slen, hashmask);
   if (*pv) {
     sidx = (intptr_t)(*pv);
   } else {
@@ -1588,21 +1522,10 @@ static void fstWriterSetSourceStem_2(struct fstWriterContext *xc, const char *pa
     *pv = (void *)(intptr_t)(xc->path_array_count);
 
     if (use_realpath) {
-      rp = fstRealpath(
-#ifndef _WAVE_HAVE_JUDY
-          (const char *)
-#endif
-              path2,
-          NULL);
+      rp = fstRealpath(path, NULL);
     }
 
-    fstWriterSetAttrGeneric(xc,
-                            rp ? rp :
-#ifndef _WAVE_HAVE_JUDY
-                               (const char *)
-#endif
-                                    path2,
-                            FST_MT_PATHNAME, sidx);
+    fstWriterSetAttrGeneric(xc, rp ? rp : path, FST_MT_PATHNAME, sidx);
 
     if (rp) {
       free(rp);
@@ -1712,11 +1635,18 @@ void fstWriterSetTimezero(struct fstWriterContext *xc, int64_t tim) {
 
 void fstWriterSetPackType(struct fstWriterContext *xc, enum fstWriterPackType typ) {
 
-  xc->fastpack = (typ != FST_WR_PT_ZLIB);
-  xc->fourpack = (typ == FST_WR_PT_LZ4);
+  if (typ == FST_WR_PT_FASTLZ) {
+    fprintf(stderr, FST_APIMESS "warning: fastlz compression is removed.\n");
+  }
+  xc->fourpack = (typ == FST_WR_PT_LZ4 || typ == FST_WR_PT_FASTLZ);
 }
 
-void fstWriterSetRepackOnClose(struct fstWriterContext *xc, int enable) { xc->repack_on_close = (enable != 0); }
+void fstWriterSetRepackOnClose(struct fstWriterContext *xc, int enable) {
+  // suppress unused paramater warning
+  (void)xc;
+  (void)enable;
+  fprintf(stderr, FST_APIMESS "warning: repack_on_close feature is removed.\n");
+}
 
 void fstWriterSetParallelMode(struct fstWriterContext *xc, int enable) {
 
@@ -1993,13 +1923,8 @@ void fstWriterEmitEnumTableRef(struct fstWriterContext *xc, fstEnumHandle handle
  */
 void fstWriterEmitValueChange(struct fstWriterContext *xc, fstHandle handle, const void *val) {
   const unsigned char *buf = (const unsigned char *)val;
-  uint32_t offs;
-  int len;
 
   assert(handle <= xc->maxhandle);
-
-  uint32_t fpos;
-  uint32_t *vm4ip;
 
   if (FST_UNLIKELY(!xc->valpos_mem)) {
     xc->vc_emitted = 1;
@@ -2007,85 +1932,87 @@ void fstWriterEmitValueChange(struct fstWriterContext *xc, fstHandle handle, con
   }
 
   handle--; /* move starting at 1 index to starting at 0 */
-  vm4ip = &(xc->valpos_mem[4 * handle]);
+  uint32_t *vm4ip = &(xc->valpos_mem[4 * handle]);
 
-  len = vm4ip[1];
-  if (FST_LIKELY(len)) /* len of zero = variable length, use fstWriterEmitVariableLengthValueChange */
-  {
-    if (FST_LIKELY(!xc->is_initial_time)) {
-      fpos = xc->vchg_siz;
+  int len = vm4ip[1];
 
-      if (FST_UNLIKELY((fpos + len + 10) > xc->vchg_alloc_siz)) {
-        xc->vchg_alloc_siz += (xc->fst_break_add_size +
-                               len); /* +len added in the case of extremely long vectors and small break add sizes */
-        xc->vchg_mem = (unsigned char *)realloc(xc->vchg_mem, xc->vchg_alloc_siz);
-        if (FST_UNLIKELY(!xc->vchg_mem)) {
-          fprintf(stderr, FST_APIMESS "Could not realloc() in fstWriterEmitValueChange, exiting.\n");
-          exit(255);
-        }
-      }
-#ifdef FST_REMOVE_DUPLICATE_VC
-      offs = vm4ip[0];
+  /* len of zero = variable length, use fstWriterEmitVariableLengthValueChange */
+  assert(len);
 
-      if (len != 1) {
-        if ((vm4ip[3] == xc->tchn_idx) && (vm4ip[2])) {
-          unsigned char *old_value = xc->vchg_mem + vm4ip[2] + 4; /* the +4 skips old vm4ip[2] value */
-          while (*(old_value++) & 0x80) { /* skips over varint encoded "xc->tchn_idx - vm4ip[3]" */
-          }
-          memcpy(old_value, buf, len); /* overlay new value */
+  if (FST_UNLIKELY(xc->is_initial_time)) {
+    uint32_t offs = vm4ip[0];
+    memcpy(xc->curval_mem + offs, buf, len);
+    return;
+  }
 
-          memcpy(xc->curval_mem + offs, buf, len);
-          return;
-        } else {
-          if (!memcmp(xc->curval_mem + offs, buf, len)) {
-            if (!xc->curtime) {
-              int i;
-              for (i = 0; i < len; i++) {
-                if (buf[i] != 'x')
-                  break;
-              }
+  uint32_t fpos = xc->vchg_siz;
 
-              if (i < len)
-                return;
-            } else {
-              return;
-            }
-          }
-        }
-
-        memcpy(xc->curval_mem + offs, buf, len);
-      } else {
-        if ((vm4ip[3] == xc->tchn_idx) && (vm4ip[2])) {
-          unsigned char *old_value = xc->vchg_mem + vm4ip[2] + 4; /* the +4 skips old vm4ip[2] value */
-          while (*(old_value++) & 0x80) { /* skips over varint encoded "xc->tchn_idx - vm4ip[3]" */
-          }
-          *old_value = *buf; /* overlay new value */
-
-          *(xc->curval_mem + offs) = *buf;
-          return;
-        } else {
-          if ((*(xc->curval_mem + offs)) == (*buf)) {
-            if (!xc->curtime) {
-              if (*buf != 'x')
-                return;
-            } else {
-              return;
-            }
-          }
-        }
-
-        *(xc->curval_mem + offs) = *buf;
-      }
-#endif
-      xc->vchg_siz +=
-          fstWriterUint32WithVarint32(xc, &vm4ip[2], xc->tchn_idx - vm4ip[3], buf, len); /* do one fwrite op only */
-      vm4ip[3] = xc->tchn_idx;
-      vm4ip[2] = fpos;
-    } else {
-      offs = vm4ip[0];
-      memcpy(xc->curval_mem + offs, buf, len);
+  if (FST_UNLIKELY((fpos + len + 10) > xc->vchg_alloc_siz)) {
+    xc->vchg_alloc_siz +=
+        (xc->fst_break_add_size + len); /* +len added in the case of extremely long vectors and small break add sizes */
+    xc->vchg_mem = (unsigned char *)realloc(xc->vchg_mem, xc->vchg_alloc_siz);
+    if (FST_UNLIKELY(!xc->vchg_mem)) {
+      fprintf(stderr, FST_APIMESS "Could not realloc() in fstWriterEmitValueChange, exiting.\n");
+      exit(255);
     }
   }
+#ifdef FST_REMOVE_DUPLICATE_VC
+  uint32_t offs = vm4ip[0];
+
+  if (len != 1) {
+    if ((vm4ip[3] == xc->tchn_idx) && (vm4ip[2])) {
+      unsigned char *old_value = xc->vchg_mem + vm4ip[2] + 4; /* the +4 skips old vm4ip[2] value */
+      while (*(old_value++) & 0x80) {                         /* skips over varint encoded "xc->tchn_idx - vm4ip[3]" */
+      }
+      memcpy(old_value, buf, len); /* overlay new value */
+
+      memcpy(xc->curval_mem + offs, buf, len);
+      return;
+    } else {
+      if (!memcmp(xc->curval_mem + offs, buf, len)) {
+        if (!xc->curtime) {
+          int i;
+          for (i = 0; i < len; i++) {
+            if (buf[i] != 'x')
+              break;
+          }
+
+          if (i < len)
+            return;
+        } else {
+          return;
+        }
+      }
+    }
+
+    memcpy(xc->curval_mem + offs, buf, len);
+  } else {
+    if ((vm4ip[3] == xc->tchn_idx) && (vm4ip[2])) {
+      unsigned char *old_value = xc->vchg_mem + vm4ip[2] + 4; /* the +4 skips old vm4ip[2] value */
+      while (*(old_value++) & 0x80) {                         /* skips over varint encoded "xc->tchn_idx - vm4ip[3]" */
+      }
+      *old_value = *buf; /* overlay new value */
+
+      *(xc->curval_mem + offs) = *buf;
+      return;
+    } else {
+      if ((*(xc->curval_mem + offs)) == (*buf)) {
+        if (!xc->curtime) {
+          if (*buf != 'x')
+            return;
+        } else {
+          return;
+        }
+      }
+    }
+
+    *(xc->curval_mem + offs) = *buf;
+  }
+#endif
+  xc->vchg_siz +=
+      fstWriterUint32WithVarint32(xc, &vm4ip[2], xc->tchn_idx - vm4ip[3], buf, len); /* do one fwrite op only */
+  vm4ip[3] = xc->tchn_idx;
+  vm4ip[2] = fpos;
 }
 
 void fstWriterEmitValueChange32(struct fstWriterContext *xc, fstHandle handle, uint32_t bits, uint32_t val) {
@@ -2191,7 +2118,7 @@ void fstWriterEmitVariableLengthValueChange(struct fstWriterContext *xc, fstHand
                                             uint32_t len) {
   const unsigned char *buf = (const unsigned char *)val;
 
-  assert(handle <= xc->maxhandle);
+  assert(handle != 0 && handle <= xc->maxhandle);
 
   uint32_t fpos;
   uint32_t *vm4ip;
@@ -2286,7 +2213,6 @@ void fstWriterEmitDumpActive(struct fstWriterContext *xc, int enable) {
 }
 
 /**********************************************************************/
-#ifndef _WAVE_HAVE_JUDY
 
 /***********************/
 /***                 ***/
@@ -2435,7 +2361,7 @@ static uint32_t j_hash(const uint8_t *k, uint32_t length, uint32_t initval) {
 
 /***************************/
 /***                     ***/
-/***  judy HS emulation  ***/
+/***  Jenkins emulation  ***/
 /***                     ***/
 /***************************/
 
@@ -2504,5 +2430,3 @@ void JenkinsFree(void *base_i, uint32_t hashmask) {
     *base = NULL;
   }
 }
-
-#endif

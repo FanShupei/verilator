@@ -34,7 +34,6 @@
  * FST_DEBUG : not for production use, only enable for development
  * FST_REMOVE_DUPLICATE_VC : glitch removal (has writer performance impact)
  * HAVE_LIBPTHREAD -> FST_WRITER_PARALLEL : enables inclusion of parallel writer code
- * _WAVE_HAVE_JUDY : use Judy arrays instead of Jenkins (undefine if LGPL is not acceptable)
  *
  */
 
@@ -98,23 +97,6 @@
 typedef int64_t fst_off_t;
 #else
 typedef off_t fst_off_t;
-#endif
-
-/* note that Judy versus Jenkins requires more experimentation: they are  */
-/* functionally equivalent though it appears Jenkins is slightly faster.  */
-/* in addition, Jenkins is not bound by the LGPL.                         */
-#ifdef _WAVE_HAVE_JUDY
-#include <Judy.h>
-#else
-/* should be more than enough for fstWriterSetSourceStem() */
-#define FST_PATH_HASHMASK ((1UL << 16) - 1)
-typedef const void *Pcvoid_t;
-typedef void *Pvoid_t;
-typedef void **PPvoid_t;
-#define JudyHSIns(a, b, c, d) JenkinsIns((a), (b), (c), (hashmask))
-#define JudyHSFreeArray(a, b) JenkinsFree((a), (hashmask))
-void JenkinsFree(void *base_i, uint32_t hashmask);
-void **JenkinsIns(void *base_i, const unsigned char *mem, uint32_t length, uint32_t hashmask);
 #endif
 
 #ifndef FST_WRITEX_DISABLE
