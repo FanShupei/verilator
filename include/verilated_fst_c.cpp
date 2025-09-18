@@ -83,7 +83,7 @@ void VerilatedFst::open(const char* filename) VL_MT_SAFE_EXCLUDES(m_mutex) {
     fstWriterSetTimescaleFromString(m_fst, timeResStr().c_str());  // lintok-begin-on-ref
     if (m_useFstWriterThread) fstWriterSetParallelMode(m_fst, 1);
     constDump(true);  // First dump must contain the const signals
-    fullDump(true);  // First dump must be full for fst
+    fullDump(true);  // First dump must contain the const signals
 
     Super::traceInit();
 

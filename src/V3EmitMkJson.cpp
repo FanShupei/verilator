@@ -98,6 +98,7 @@ class V3EmitMkJsonEmitter final {
             .put("threads", v3Global.opt.threads())
             .put("trace", v3Global.opt.trace())
             .put("trace_fst", v3Global.opt.traceEnabledFst())
+            .put("trace_fxt", v3Global.opt.traceEnabledFxt())
             .put("trace_saif", v3Global.opt.traceEnabledSaif())
             .put("trace_vcd", v3Global.opt.traceEnabledVcd())
             .end()

@@ -1682,6 +1682,10 @@ void V3Options::parseOptsList(FileLine* fl, const string& optdir, int argc,
         m_traceFormat = TraceFormat::FST;
         addLdLibs("-lz");
     });
+    DECL_OPTION("-trace-fxt", CbCall, [this]() {
+        m_trace = true;
+        m_traceFormat = TraceFormat::FXT;
+    });
     DECL_OPTION("-trace-fst-thread", CbCall, [this, fl]() {
         m_trace = true;
         m_traceFormat = TraceFormat::FST;

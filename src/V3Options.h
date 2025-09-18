@@ -161,7 +161,7 @@ inline std::ostream& operator<<(std::ostream& os, const VTimescale& rhs) {
 
 class TraceFormat final {
 public:
-    enum en : uint8_t { VCD = 0, FST, SAIF } m_e;
+    enum en : uint8_t { VCD = 0, FST, FXT, SAIF } m_e;
     // cppcheck-suppress noExplicitConstructor
     constexpr TraceFormat(en _e = VCD)
         : m_e{_e} {}
@@ -169,14 +169,15 @@ public:
         : m_e(static_cast<en>(_e)) {}  // Need () or GCC 4.8 false warning
     constexpr operator en() const { return m_e; }
     bool fst() const { return m_e == FST; }
+    bool fxt() const { return m_e == FXT; }
     bool saif() const { return m_e == SAIF; }
     bool vcd() const { return m_e == VCD; }
     string classBase() const VL_MT_SAFE {
-        static const char* const names[] = {"VerilatedVcd", "VerilatedFst", "VerilatedSaif"};
+        static const char* const names[] = {"VerilatedVcd", "VerilatedFst", "VerilatedFxt", "VerilatedSaif"};
         return names[m_e];
     }
     string sourceName() const VL_MT_SAFE {
-        static const char* const names[] = {"verilated_vcd", "verilated_fst", "verilated_saif"};
+        static const char* const names[] = {"verilated_vcd", "verilated_fst", "verilated_fxt", "verilated_saif"};
         return names[m_e];
     }
 };
@@ -643,6 +644,7 @@ public:
     int traceDepth() const { return m_traceDepth; }
     TraceFormat traceFormat() const { return m_traceFormat; }
     bool traceEnabledFst() const { return trace() && traceFormat().fst(); }
+    bool traceEnabledFxt() const { return trace() && traceFormat().fxt(); }
     bool traceEnabledSaif() const { return trace() && traceFormat().saif(); }
     bool traceEnabledVcd() const { return trace() && traceFormat().vcd(); }
     int traceMaxArray() const { return m_traceMaxArray; }
